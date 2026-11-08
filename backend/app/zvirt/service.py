@@ -148,12 +148,17 @@ class ZvirtService:
             vcpu=request.vcpu,
             description=request.description,
         )
-        self.attach_disk(vm_id, name=f"{request.name}-disk-0", size_gib=request.disk_gib,
-                         storage_domain=request.storage_domain, bootable=True)
+        # Диск нужен только при создании из шаблона Blank: при клонировании
+        # из шаблона с ОС диск наследуется от шаблона (тонкий клон).
+        if self._is_blank_template(request.template) and request.disk_gib > 0:
+            self.attach_disk(vm_id, name=f"{request.name}-disk-0", size_gib=request.disk_gib,
+                             storage_domain=request.storage_domain, bootable=True)
         self.attach_nic(vm_id, name="nic0", network=request.network)
         if request.iso:
             self.attach_iso(vm_id, request.iso)
         if request.start:
+            # При клоне из шаблона ВМ заблокирована до окончания копирования диска.
+            self.wait_for_vm_unlocked(vm_id)
             self.vm_action(vm_id, "start")
         return self.get_vm(vm_id)
 
@@ -198,6 +203,7 @@ class ZvirtService:
         тогда применяется принудительное выключение питания.
         @return Итоговый статус ВМ ("down").
         """
+        self.wait_for_vm_unlocked(vm_id)
         if self.get_vm_status(vm_id) in _VM_STOPPED_STATES:
             return "down"
         self.vm_action(vm_id, "shutdown")
@@ -206,6 +212,24 @@ class ZvirtService:
         except ZvirtTimeoutError:
             self.vm_action(vm_id, "stop")
             return self.wait_for_vm_status(vm_id, targets=("down",), timeout=graceful_timeout)
+
+    def wait_for_vm_unlocked(self, vm_id: str, timeout: float = 900.0, poll_interval: float = 5.0) -> str:
+        """!
+        @brief Ожидание снятия блокировки ВМ (image_locked).
+
+        Клонирование диска шаблона — длительная фоновая операция: всё это
+        время ВМ заблокирована, и действия над ней отклоняются (HTTP 409).
+        @return Статус ВМ после снятия блокировки.
+        """
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            status = self.get_vm_status(vm_id)
+            if status != "image_locked":
+                return status
+            time.sleep(poll_interval)
+        raise ZvirtTimeoutError(
+            f"ВМ {vm_id} не разблокировалась за {timeout:.0f} с (клонирование диска)"
+        )
 
     def wait_for_vm_status(
         self,
@@ -365,18 +389,25 @@ class ZvirtService:
         vm_id = self._create_vm_shell(
             name=vm.name,
             cluster=spec.cluster,
-            template="Blank",
+            template=vm.template,
             memory_mib=vm.memory_mib,
             vcpu=vm.vcpu,
             description=vm.description or f"ВМ стенда {spec.stand}",
         )
-        self.attach_disk(vm_id, name=f"{vm.name}-disk-0", size_gib=vm.disk_gib,
-                         storage_domain=spec.storage_domain, bootable=True)
+        if self._is_blank_template(vm.template) and vm.disk_gib > 0:
+            self.attach_disk(vm_id, name=f"{vm.name}-disk-0", size_gib=vm.disk_gib,
+                             storage_domain=spec.storage_domain, bootable=True)
         self.attach_nic(vm_id, name="nic0", network=spec.network)
         if vm.iso:
             self.attach_iso(vm_id, vm.iso)
         if vm.start:
+            self.wait_for_vm_unlocked(vm_id)
             self.vm_action(vm_id, "start")
+
+    @staticmethod
+    def _is_blank_template(template_name: str) -> bool:
+        """! Шаблон Blank не содержит дисков — диск создаётся отдельно."""
+        return template_name.strip().lower() == "blank"
 
     def _create_vm_shell(
         self,

@@ -95,7 +95,7 @@ def load_settings(env: Dict[str, str] = None) -> Settings:
     )
     return Settings(
         app_name="IaC Platform",
-        version="0.2.0",
+        version="0.3.0",
         debug=_env_bool(source, "IAC_DEBUG", False),
         zvirt=zvirt,
     )

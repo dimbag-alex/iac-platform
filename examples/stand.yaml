@@ -6,19 +6,22 @@ storage_domain: zhost-Local
 network: ovirtmgmt
 
 defaults:
-  memory_mib: 1024
+  memory_mib: 2048
   vcpu: 1
   disk_gib: 6
 
 vms:
+  # ВМ из шаблона с установленной ОС: диск наследуется от шаблона,
+  # новый диск не создаётся (disk_gib игнорируется для template != Blank).
   - name: lab1-vm1
-    memory_mib: 1024
-    disk_gib: 6
-    iso: redos8.0.3
-    description: Тестовая ВМ стенда lab1 с ISO RED OS
+    template: redos8.0.3-base
+    memory_mib: 2048
+    description: ВМ стенда lab1 из шаблона RED OS
     start: false
 
+  # ВМ из пустого шаблона с новым диском и установочным ISO.
   - name: lab1-vm2
-    # параметры наследуются из defaults
-    description: Вторая ВМ стенда lab1
+    template: Blank
+    iso: redos8.0.3
+    description: ВМ стенда lab1 для установки ОС с ISO
     start: false

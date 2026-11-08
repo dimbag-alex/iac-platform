@@ -31,6 +31,13 @@ def test_docs_available():
     assert response.status_code == 200
 
 
+def test_web_ui_served():
+    """! Пользовательский веб-интерфейс отдаётся с корня."""
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "IaC Platform" in response.text
+
+
 def test_unknown_route_returns_404():
     response = client.get("/api/does-not-exist")
     assert response.status_code == 404

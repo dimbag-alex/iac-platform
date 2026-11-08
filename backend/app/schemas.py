@@ -45,6 +45,7 @@ class VmSpec(BaseModel):
     disk_gib: Optional[int] = Field(None, ge=1, le=4096, description="Диск, GiB")
     description: str = Field("", max_length=400, description="Описание в свободной форме")
     iso: Optional[str] = Field(None, description="Имя ISO-образа для CD-ROM")
+    template: str = Field("Blank", description="Шаблон ВМ (Blank или шаблон с ОС)")
     start: bool = Field(False, description="Запустить ВМ после создания")
 
     @field_validator("name")
@@ -68,9 +69,10 @@ class ResolvedVm(BaseModel):
     name: str
     memory_mib: int = Field(..., ge=128, le=262144)
     vcpu: int = Field(..., ge=1, le=64)
-    disk_gib: int = Field(..., ge=1, le=4096)
+    disk_gib: int = Field(..., ge=0, le=4096)
     description: str = ""
     iso: Optional[str] = None
+    template: str = "Blank"
     start: bool = False
 
 
@@ -119,6 +121,7 @@ class StandSpec(BaseModel):
                 disk_gib=vm.disk_gib if vm.disk_gib is not None else self.defaults.disk_gib,
                 description=vm.description,
                 iso=vm.iso,
+                template=vm.template,
                 start=vm.start,
             )
             for vm in self.vms

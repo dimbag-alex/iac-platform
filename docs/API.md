@@ -1,4 +1,4 @@
-# API платформы (v0.2.0)
+# API платформы (v0.3.0)
 
 Базовый URL: `http://localhost:8000`. Интерактивная документация: `/docs`.
 
@@ -10,6 +10,7 @@
 
 | Метод | Путь | Описание |
 |---|---|---|
+| GET | `/` | Веб-интерфейс (SPA: обзор, ВМ, стенды IaC, каталог) |
 | GET | `/api/health` | Состояние платформы (без гипервизора) |
 | GET | `/api/health/hypervisor` | Связь с Engine: версия, сводка ресурсов; `not_configured`/`unavailable` при проблемах |
 
@@ -65,5 +66,10 @@
 
 Схема спецификации (см. `examples/stand.yaml`): `stand`, `cluster`,
 `storage_domain`, `network`, `defaults {memory_mib, vcpu, disk_gib}`,
-`vms[] {name, memory_mib?, vcpu?, disk_gib?, iso?, start?, description?}`.
+`vms[] {name, memory_mib?, vcpu?, disk_gib?, template?, iso?, start?, description?}`.
 Имена ВМ валидируются по схеме `<стенд>-<роль>` (ТЗ 4.1.11).
+
+При создании из непустого шаблона (`template` ≠ `Blank`) диск клонируется
+из шаблона (поле `disk_gib` игнорируется, ISO не подключается); ВМ некоторое
+время находится в статусе `image_locked`, действия с ней возможны после
+разблокировки — сервис это ожидание выполняет сам.

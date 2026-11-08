@@ -2,10 +2,16 @@
 @file main.py
 @brief Точка входа FastAPI-приложения АИС УЖЦ ВВИ (IaC Platform).
 """
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from .api import health, inventory, stands, vms
 from .config import settings
+
+#: Каталог статики пользовательского веб-интерфейса (ТЗ 4.2.1).
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 
 def create_app() -> FastAPI:
@@ -25,6 +31,8 @@ def create_app() -> FastAPI:
     app.include_router(inventory.router, prefix="/api/v1/inventory")
     app.include_router(vms.router, prefix="/api/v1")
     app.include_router(stands.router, prefix="/api/v1")
+    # Веб-интерфейс монтируется последним: /api/* имеет приоритет.
+    app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="web-ui")
     return app
 
 

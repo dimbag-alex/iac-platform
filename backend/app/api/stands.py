@@ -48,6 +48,7 @@ def preview_stand(
                     "memory_mib": vm.memory_mib,
                     "vcpu": vm.vcpu,
                     "disk_gib": vm.disk_gib,
+                    "template": vm.template,
                     "iso": vm.iso,
                     "start": vm.start,
                     "current_status": existing["status"] if existing else None,
