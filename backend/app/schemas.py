@@ -76,6 +76,21 @@ class ResolvedVm(BaseModel):
     start: bool = False
 
 
+def _ensure_unique(names: List[str]) -> None:
+    """! Проверяет уникальность имён ВМ в спецификации."""
+    if len(names) != len(set(names)):
+        raise ValueError("имена ВМ в спецификации стенда должны быть уникальны")
+
+
+def _ensure_prefixed(names: List[str], prefix: str) -> None:
+    """! Проверяет, что все имена ВМ начинаются с префикса стенда (ТЗ 4.1.11)."""
+    offenders = [n for n in names if not n.startswith(prefix)]
+    if offenders:
+        raise ValueError(
+            f"имена ВМ должны начинаться с префикса стенда '{prefix}': {offenders}"
+        )
+
+
 class StandSpec(BaseModel):
     """!
     @brief Декларативное описание топологии стенда (пункт 2.1 ТЗ).
@@ -101,14 +116,8 @@ class StandSpec(BaseModel):
     def vms_must_be_unique_and_prefixed(self) -> "StandSpec":
         """! Имена ВМ уникальны и начинаются с префикса стенда."""
         names = [vm.name for vm in self.vms]
-        if len(names) != len(set(names)):
-            raise ValueError("имена ВМ в спецификации стенда должны быть уникальны")
-        prefix = f"{self.stand}-"
-        offenders = [n for n in names if not n.startswith(prefix)]
-        if offenders:
-            raise ValueError(
-                f"имена ВМ должны начинаться с префикса стенда '{prefix}': {offenders}"
-            )
+        _ensure_unique(names)
+        _ensure_prefixed(names, prefix=f"{self.stand}-")
         return self
 
     def resolved_vms(self) -> List[ResolvedVm]:

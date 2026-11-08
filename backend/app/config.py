@@ -13,7 +13,7 @@
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional, Tuple
 
 
 def _load_dotenv(path: Path) -> None:
@@ -24,11 +24,19 @@ def _load_dotenv(path: Path) -> None:
     if not path.is_file():
         return
     for line in path.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#") or "=" not in stripped:
-            continue
-        key, _, value = stripped.partition("=")
-        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+        entry = _parse_env_line(line)
+        if entry is not None:
+            key, value = entry
+            os.environ.setdefault(key, value)
+
+
+def _parse_env_line(line: str) -> Optional[Tuple[str, str]]:
+    """! Разбирает строку .env в (ключ, значение) или None для пустых/комментариев."""
+    stripped = line.strip()
+    if not stripped or stripped.startswith("#") or "=" not in stripped:
+        return None
+    key, _, value = stripped.partition("=")
+    return key.strip(), value.strip().strip('"').strip("'")
 
 
 _load_dotenv(Path(__file__).resolve().parents[2] / ".env")

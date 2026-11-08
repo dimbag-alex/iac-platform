@@ -6,7 +6,7 @@
 Bearer-аутентификация с однократным обновлением токена при 401, разбор
 элемента `fault` в исключение ZvirtApiError.
 """
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import httpx
 
@@ -95,16 +95,7 @@ class ZvirtClient:
         @return Разобранный JSON ответа (dict/list) или {} для пустых ответов.
         """
         url = self._base + self._normalize_path(path)
-        headers = {"Authorization": f"Bearer {self._tokens.get_token()}"}
-
-        try:
-            response = self._http.request(
-                method, url, params=params, json=body, headers=headers
-            )
-        except httpx.TimeoutException as exc:
-            raise ZvirtTimeoutError(f"{method} {path}: таймаут запроса") from exc
-        except httpx.HTTPError as exc:
-            raise ZvirtConnectionError(f"{method} {path}: {exc}") from exc
+        response = self._send(method, url, path, params, body)
 
         if response.status_code == 401 and _retry_on_401:
             # Токен истёк: обновляем и повторяем запрос один раз.
@@ -118,6 +109,23 @@ class ZvirtClient:
             return {}
         return response.json()
 
+    def _send(
+        self,
+        method: str,
+        url: str,
+        path: str,
+        params: Optional[Dict[str, Any]],
+        body: Optional[Dict[str, Any]],
+    ) -> httpx.Response:
+        """! Выполняет HTTP-запрос, приводя сетевые ошибки к типам подсистемы."""
+        headers = {"Authorization": f"Bearer {self._tokens.get_token()}"}
+        try:
+            return self._http.request(method, url, params=params, json=body, headers=headers)
+        except httpx.TimeoutException as exc:
+            raise ZvirtTimeoutError(f"{method} {path}: таймаут запроса") from exc
+        except httpx.HTTPError as exc:
+            raise ZvirtConnectionError(f"{method} {path}: {exc}") from exc
+
     @staticmethod
     def _normalize_path(path: str) -> str:
         """! Гарантирует ведущий слэш у пути сервиса."""
@@ -126,17 +134,7 @@ class ZvirtClient:
     @staticmethod
     def _make_error(method: str, path: str, response: httpx.Response) -> ZvirtApiError:
         """! Разбирает тело ошибки zVirt (элемент fault) в ZvirtApiError."""
-        reason = response.text.strip()[:300] or f"HTTP {response.status_code}"
-        detail = ""
-        try:
-            payload = response.json()
-        except ValueError:
-            payload = None
-        if isinstance(payload, dict):
-            fault = payload.get("fault", payload)
-            if isinstance(fault, dict):
-                reason = str(fault.get("reason") or reason)
-                detail = str(fault.get("detail") or "")
+        reason, detail = ZvirtClient._extract_fault(response)
         return ZvirtApiError(
             status_code=response.status_code,
             reason=reason,
@@ -144,3 +142,24 @@ class ZvirtClient:
             method=method,
             path=path,
         )
+
+    @staticmethod
+    def _extract_fault(response: httpx.Response) -> Tuple[str, str]:
+        """! Извлекает (reason, detail) из тела ответа с элементом fault."""
+        fallback = response.text.strip()[:300] or f"HTTP {response.status_code}"
+        fault = ZvirtClient._fault_dict(response)
+        if fault is None:
+            return fallback, ""
+        return str(fault.get("reason") or fallback), str(fault.get("detail") or "")
+
+    @staticmethod
+    def _fault_dict(response: httpx.Response) -> Optional[Dict[str, Any]]:
+        """! Возвращает элемент fault ответа как словарь или None."""
+        try:
+            payload = response.json()
+        except ValueError:
+            return None
+        if not isinstance(payload, dict):
+            return None
+        fault = payload.get("fault", payload)
+        return fault if isinstance(fault, dict) else None

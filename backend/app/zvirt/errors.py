@@ -70,22 +70,25 @@ class ZvirtNotFoundError(ZvirtApiError):
         super().__init__(404, f"Not found: {what}", method=method, path=path)
 
 
+#: Маппинг типов ошибок на HTTP-статусы (порядок важен: частные типы — раньше).
+_STATUS_MAP = (
+    (ZvirtConfigError, 503),
+    (ZvirtAuthError, 502),
+    (ZvirtTimeoutError, 504),
+    (ZvirtConnectionError, 502),
+    (ZvirtNotFoundError, 404),
+)
+
+
 def http_status_for(error: ZvirtError) -> int:
     """!
     @brief Маппинг внутренних ошибок интеграции на HTTP-статусы нашего API.
     @param error Исключение подсистемы интеграции.
     @return HTTP-статус для ответа FastAPI.
     """
-    if isinstance(error, ZvirtConfigError):
-        return 503
-    if isinstance(error, ZvirtAuthError):
-        return 502
-    if isinstance(error, ZvirtTimeoutError):
-        return 504
-    if isinstance(error, ZvirtConnectionError):
-        return 502
-    if isinstance(error, ZvirtNotFoundError):
-        return 404
+    for error_type, status in _STATUS_MAP:
+        if isinstance(error, error_type):
+            return status
     if isinstance(error, ZvirtApiError):
         code: int = error.status_code
         return code if 400 <= code < 600 else 502

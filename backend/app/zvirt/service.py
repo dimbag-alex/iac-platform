@@ -18,6 +18,11 @@ from . import mappers
 _VM_STOPPED_STATES = ("down", "suspended")
 
 
+def _is_retryable_lock(error: ZvirtApiError, attempt: int, attempts: int) -> bool:
+    """! True, если ошибка — временная блокировка (HTTP 409) и остались попытки."""
+    return error.status_code == 409 and attempt < attempts - 1
+
+
 class ZvirtService:
     """!
     @brief Фасад подсистемы интеграции с гипервизором (п. 4.2.4 ТЗ).
@@ -148,18 +153,16 @@ class ZvirtService:
             vcpu=request.vcpu,
             description=request.description,
         )
-        # Диск нужен только при создании из шаблона Blank: при клонировании
-        # из шаблона с ОС диск наследуется от шаблона (тонкий клон).
-        if self._is_blank_template(request.template) and request.disk_gib > 0:
-            self.attach_disk(vm_id, name=f"{request.name}-disk-0", size_gib=request.disk_gib,
-                             storage_domain=request.storage_domain, bootable=True)
-        self.attach_nic(vm_id, name="nic0", network=request.network)
-        if request.iso:
-            self.attach_iso(vm_id, request.iso)
-        if request.start:
-            # При клоне из шаблона ВМ заблокирована до окончания копирования диска.
-            self.wait_for_vm_unlocked(vm_id)
-            self.vm_action(vm_id, "start")
+        self._provision_vm_devices(
+            vm_id,
+            name=request.name,
+            template=request.template,
+            disk_gib=request.disk_gib,
+            storage_domain=request.storage_domain,
+            network=request.network,
+            iso=request.iso,
+            start=request.start,
+        )
         return self.get_vm(vm_id)
 
     def delete_vm(self, vm_id: str, attempts: int = 6, retry_interval: float = 10.0) -> None:
@@ -170,18 +173,14 @@ class ZvirtService:
         удаление повторяется с паузой — это штатная ситуация сразу после
         создания ВМ.
         """
-        last_error: Optional[ZvirtApiError] = None
         for attempt in range(attempts):
             try:
                 self._client.delete(f"/vms/{vm_id}")
                 return
             except ZvirtApiError as exc:
-                if exc.status_code != 409 or attempt == attempts - 1:
+                if not _is_retryable_lock(exc, attempt, attempts):
                     raise
-                last_error = exc
                 time.sleep(retry_interval)
-        if last_error:  # pragma: no cover - защитная ветка
-            raise last_error
 
     def vm_action(self, vm_id: str, action: str) -> Dict[str, Any]:
         """!
@@ -394,13 +393,42 @@ class ZvirtService:
             vcpu=vm.vcpu,
             description=vm.description or f"ВМ стенда {spec.stand}",
         )
-        if self._is_blank_template(vm.template) and vm.disk_gib > 0:
-            self.attach_disk(vm_id, name=f"{vm.name}-disk-0", size_gib=vm.disk_gib,
-                             storage_domain=spec.storage_domain, bootable=True)
-        self.attach_nic(vm_id, name="nic0", network=spec.network)
-        if vm.iso:
-            self.attach_iso(vm_id, vm.iso)
-        if vm.start:
+        self._provision_vm_devices(
+            vm_id,
+            name=vm.name,
+            template=vm.template,
+            disk_gib=vm.disk_gib,
+            storage_domain=spec.storage_domain,
+            network=spec.network,
+            iso=vm.iso,
+            start=vm.start,
+        )
+
+    def _provision_vm_devices(
+        self,
+        vm_id: str,
+        name: str,
+        template: str,
+        disk_gib: int,
+        storage_domain: Optional[str],
+        network: str,
+        iso: Optional[str],
+        start: bool,
+    ) -> None:
+        """!
+        @brief Подключение устройств ВМ: диск (для Blank), vNIC, ISO, запуск.
+
+        Диск нужен только при создании из шаблона Blank: при клонировании
+        из шаблона с ОС диск наследуется от шаблона (тонкий клон).
+        """
+        if self._is_blank_template(template) and disk_gib > 0:
+            self.attach_disk(vm_id, name=f"{name}-disk-0", size_gib=disk_gib,
+                             storage_domain=storage_domain, bootable=True)
+        self.attach_nic(vm_id, name="nic0", network=network)
+        if iso:
+            self.attach_iso(vm_id, iso)
+        if start:
+            # При клоне из шаблона ВМ заблокирована до окончания копирования диска.
             self.wait_for_vm_unlocked(vm_id)
             self.vm_action(vm_id, "start")
 
