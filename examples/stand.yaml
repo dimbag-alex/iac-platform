@@ -1,0 +1,27 @@
+# Декларативное описание тестового стенда (пример для живого стенда zVirt).
+# Имена ВМ обязаны начинаться с префикса "<stand>-" (схема именования, ТЗ 4.1.11).
+stand: lab1
+cluster: Default
+storage_domain: zhost-Local
+network: ovirtmgmt
+
+defaults:
+  memory_mib: 2048
+  vcpu: 1
+  disk_gib: 6
+
+vms:
+  # ВМ из шаблона с установленной ОС: диск наследуется от шаблона,
+  # новый диск не создаётся (disk_gib игнорируется для template != Blank).
+  - name: lab1-vm1
+    template: redos8.0.3-base
+    memory_mib: 2048
+    description: ВМ стенда lab1 из шаблона RED OS
+    start: false
+
+  # ВМ из пустого шаблона с новым диском и установочным ISO.
+  - name: lab1-vm2
+    template: Blank
+    iso: redos8.0.3
+    description: ВМ стенда lab1 для установки ОС с ISO
+    start: false

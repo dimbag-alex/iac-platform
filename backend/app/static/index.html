@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IaC Platform — АИС УЖЦ ВВИ</title>
+<style>
+  :root {
+    --bg: #0f1420; --panel: #171e2e; --panel-2: #1e2740; --border: #2a3550;
+    --text: #e6ebf5; --muted: #8b96ad; --accent: #4f7cff; --accent-2: #6d93ff;
+    --ok: #34c98e; --warn: #f0b429; --err: #f0564f; --info: #4fc3f7;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font: 14px/1.5 "Segoe UI", system-ui, sans-serif; }
+  header { display: flex; align-items: center; gap: 14px; padding: 14px 24px; background: var(--panel); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
+  header h1 { font-size: 18px; font-weight: 600; }
+  header h1 small { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 8px; }
+  .hv-status { margin-left: auto; display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+  .dot.ok { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+  .dot.err { background: var(--err); box-shadow: 0 0 6px var(--err); }
+  nav { display: flex; gap: 4px; padding: 10px 24px 0; }
+  nav button { background: none; border: none; color: var(--muted); font-size: 14px; padding: 8px 14px; cursor: pointer; border-bottom: 2px solid transparent; }
+  nav button:hover { color: var(--text); }
+  nav button.active { color: var(--text); border-bottom-color: var(--accent); }
+  main { padding: 20px 24px 40px; max-width: 1200px; }
+  .tab { display: none; }
+  .tab.active { display: block; }
+  .grid { display: grid; gap: 14px; }
+  .grid.cols-4 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .card h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 8px; font-weight: 600; }
+  .card .value { font-size: 24px; font-weight: 600; }
+  .card .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .bar { height: 6px; background: var(--panel-2); border-radius: 3px; overflow: hidden; margin-top: 10px; }
+  .bar > i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  tr:last-child td { border-bottom: none; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .badge.up, .badge.ok, .badge.active { color: var(--ok); background: rgba(52,201,142,.12); }
+  .badge.down { color: var(--muted); background: rgba(139,150,173,.12); }
+  .badge.transient { color: var(--warn); background: rgba(240,180,41,.12); }
+  .badge.suspended, .badge.paused { color: var(--info); background: rgba(79,195,247,.12); }
+  .badge.error, .badge.unresponsive { color: var(--err); background: rgba(240,86,79,.12); }
+  .btn { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { background: var(--accent-2); }
+  .btn.danger:hover { border-color: var(--err); color: var(--err); }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .btn.sm { padding: 4px 9px; font-size: 12px; }
+  .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+  .toolbar .spacer { flex: 1; }
+  .muted { color: var(--muted); }
+  .spin { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: sp 0.8s linear infinite; vertical-align: -2px; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+  .events { display: flex; flex-direction: column; gap: 6px; max-height: 340px; overflow: auto; }
+  .event { padding: 8px 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; font-size: 13px; }
+  .event .sev { font-size: 11px; font-weight: 700; margin-right: 8px; }
+  .event .sev.error, .event .sev.alert { color: var(--err); }
+  .event .sev.warning { color: var(--warn); }
+  .event .sev.normal { color: var(--ok); }
+  .event time { color: var(--muted); font-size: 11px; margin-left: 8px; }
+  pre.out { background: #0a0e18; border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; overflow: auto; font: 12px/1.5 ui-monospace, Menlo, monospace; max-height: 420px; white-space: pre-wrap; }
+  textarea.yaml { width: 100%; min-height: 300px; background: #0a0e18; color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; font: 13px/1.5 ui-monospace, Menlo, monospace; resize: vertical; }
+  .modal-bg { position: fixed; inset: 0; background: rgba(5,8,14,.7); display: none; align-items: center; justify-content: center; z-index: 20; }
+  .modal-bg.open { display: flex; }
+  .modal { width: 480px; max-width: 94vw; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 22px; max-height: 90vh; overflow: auto; }
+  .modal h2 { font-size: 16px; margin-bottom: 16px; }
+  .form-row { margin-bottom: 12px; }
+  .form-row label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .form-row input, .form-row select { width: 100%; background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+  .form-row input:focus, .form-row select:focus, textarea.yaml:focus { outline: none; border-color: var(--accent); }
+  .form-cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .form-check { display: flex; gap: 8px; align-items: center; margin: 14px 0; }
+  .modal .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+  .hint { font-size: 12px; color: var(--warn); margin-top: 4px; display: none; }
+  #toast { position: fixed; right: 20px; bottom: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 30; }
+  .toast { padding: 10px 16px; border-radius: 8px; background: var(--panel-2); border: 1px solid var(--border); max-width: 420px; font-size: 13px; }
+  .toast.err { border-color: var(--err); }
+  .toast.ok { border-color: var(--ok); }
+  .iso-list { display: flex; flex-direction: column; gap: 8px; }
+  .iso { display: flex; justify-content: space-between; padding: 10px 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; }
+  section.block { margin-bottom: 26px; }
+  section.block > h2 { font-size: 15px; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>IaC Platform <small>АИС УЖЦ ВВИ · zVirt</small></h1>
+  <div class="hv-status"><span class="dot" id="hv-dot"></span><span id="hv-text">проверка связи…</span></div>
+</header>
+
+<nav>
+  <button data-tab="overview" class="active">Обзор</button>
+  <button data-tab="vms">Виртуальные машины</button>
+  <button data-tab="stands">Стенды (IaC)</button>
+  <button data-tab="catalog">Каталог</button>
+</nav>
+
+<main>
+  <!-- ============================== ОБЗОР ============================== -->
+  <div class="tab active" id="tab-overview">
+    <div class="grid cols-4" id="overview-cards"></div>
+    <section class="block" style="margin-top:22px">
+      <h2>Домены хранения</h2>
+      <div class="grid cols-2" id="storage-cards"></div>
+    </section>
+    <section class="block">
+      <h2>Последние события</h2>
+      <div class="toolbar"><button class="btn sm" onclick="loadEvents()">Обновить</button></div>
+      <div class="events" id="events"></div>
+    </section>
+  </div>
+
+  <!-- ========================= ВИРТУАЛЬНЫЕ МАШИНЫ ========================= -->
+  <div class="tab" id="tab-vms">
+    <div class="toolbar">
+      <button class="btn sm" onclick="loadVms()">Обновить</button>
+      <span class="spacer"></span>
+      <button class="btn primary" onclick="openCreateVm()">+ Создать ВМ</button>
+    </div>
+    <div id="vms-wrap"><span class="spin"></span> <span class="muted">загрузка…</span></div>
+  </div>
+
+  <!-- ============================= СТЕНДЫ ============================= -->
+  <div class="tab" id="tab-stands">
+    <section class="block">
+      <h2>Спецификация стенда (YAML)</h2>
+      <textarea class="yaml" id="stand-yaml" spellcheck="false"></textarea>
+    </section>
+    <div class="toolbar">
+      <button class="btn" onclick="standAction('preview')">Предпросмотр</button>
+      <button class="btn primary" onclick="standAction('apply')">Применить (apply)</button>
+      <button class="btn danger" onclick="if(confirm('Удалить все ВМ стенда?')) standAction('destroy')">Удалить стенд (destroy)</button>
+      <span class="spacer"></span>
+      <span class="muted" id="stand-busy"></span>
+    </div>
+    <section class="block">
+      <h2>Результат</h2>
+      <pre class="out" id="stand-result">Здесь появится план или отчёт о применении спецификации.</pre>
+    </section>
+  </div>
+
+  <!-- ============================= КАТАЛОГ ============================= -->
+  <div class="tab" id="tab-catalog">
+    <section class="block">
+      <h2>Шаблоны ВМ</h2>
+      <div class="grid cols-2" id="templates"></div>
+    </section>
+    <section class="block">
+      <h2>ISO-образы</h2>
+      <div class="iso-list" id="isos"></div>
+    </section>
+  </div>
+</main>
+
+<!-- ========================= МОДАЛКА: СОЗДАТЬ ВМ ========================= -->
+<div class="modal-bg" id="vm-modal">
+  <div class="modal">
+    <h2>Новая виртуальная машина</h2>
+    <div class="form-row"><label>Имя (строчные буквы, цифры, дефис)</label><input id="vm-name" placeholder="my-vm-1"></div>
+    <div class="form-row"><label>Шаблон</label><select id="vm-template"></select>
+      <div class="hint" id="vm-disk-hint">Диск наследуется от шаблона — поле «Диск» не используется.</div>
+    </div>
+    <div class="form-cols">
+      <div class="form-row"><label>Память, MiB</label><input id="vm-mem" type="number" value="2048" min="128"></div>
+      <div class="form-row"><label>vCPU</label><input id="vm-vcpu" type="number" value="1" min="1"></div>
+      <div class="form-row" id="vm-disk-row"><label>Диск, GiB</label><input id="vm-disk" type="number" value="8" min="1"></div>
+    </div>
+    <div class="form-row"><label>Сеть</label><select id="vm-network"></select></div>
+    <div class="form-row"><label>Домен хранения (для нового диска)</label><select id="vm-storage"></select></div>
+    <div class="form-row"><label>ISO (необязательно)</label><select id="vm-iso"></select></div>
+    <div class="form-check"><input type="checkbox" id="vm-start"><label for="vm-start">Запустить после создания</label></div>
+    <div class="actions">
+      <button class="btn" onclick="closeCreateVm()">Отмена</button>
+      <button class="btn primary" id="vm-create-btn" onclick="createVm()">Создать</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const API = "";
+const TRANSIENT = new Set(["wait_for_launch","powering_up","powering_down","migrating","image_locked","saving_state","restoring_state"]);
+const STAND_EXAMPLE = `stand: lab1
+cluster: Default
+storage_domain: zhost-Local
+network: ovirtmgmt
+
+defaults:
+  memory_mib: 2048
+  vcpu: 1
+  disk_gib: 6
+
+vms:
+  - name: lab1-vm1
+    template: redos8.0.3-base
+    memory_mib: 2048
+    description: ВМ стенда lab1 из шаблона RED OS
+    start: false
+  - name: lab1-vm2
+    template: Blank
+    iso: redos8.0.3
+    description: ВМ стенда lab1 для установки ОС с ISO
+    start: false
+`;
+
+// ---------- утилиты ----------
+async function req(path, opts = {}) {
+  const r = await fetch(API + path, opts);
+  if (!r.ok) {
+    let msg = "HTTP " + r.status;
+    try { msg += ": " + ((await r.json()).detail || ""); } catch (e) {}
+    throw new Error(msg);
+  }
+  return r.json();
+}
+function toast(text, kind = "ok") {
+  const el = document.createElement("div");
+  el.className = "toast " + kind;
+  el.textContent = text;
+  document.getElementById("toast").appendChild(el);
+  setTimeout(() => el.remove(), 6000);
+}
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function badge(status) {
+  const cls = TRANSIENT.has(status) ? "transient" : status;
+  const label = TRANSIENT.has(status) ? status.replaceAll("_"," ") + "…" : status;
+  return `<span class="badge ${esc(cls)}">${esc(label || "unknown")}</span>`;
+}
+function fmtTime(ms) {
+  const n = Number(ms);
+  if (!n) return "";
+  return new Date(n).toLocaleString("ru-RU");
+}
+
+// ---------- навигация ----------
+document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("nav button").forEach(x => x.classList.remove("active"));
+  document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+  b.classList.add("active");
+  document.getElementById("tab-" + b.dataset.tab).classList.add("active");
+  if (b.dataset.tab === "vms") loadVms();
+  if (b.dataset.tab === "catalog") loadCatalog();
+}));
+
+// ---------- шапка: связь с гипервизором ----------
+async function loadHypervisor() {
+  const dot = document.getElementById("hv-dot"), txt = document.getElementById("hv-text");
+  try {
+    const h = await req("/api/health/hypervisor");
+    if (h.status === "ok") {
+      dot.className = "dot ok";
+      txt.textContent = `${h.product} ${h.version || ""}`.trim();
+    } else {
+      dot.className = "dot err";
+      txt.textContent = h.status === "not_configured" ? "гипервизор не настроен" : "гипервизор недоступен";
+    }
+    return h;
+  } catch (e) {
+    dot.className = "dot err";
+    txt.textContent = "нет связи с backend";
+    return null;
+  }
+}
+
+// ---------- обзор ----------
+async function loadOverview() {
+  const h = await loadHypervisor();
+  const cards = document.getElementById("overview-cards");
+  const s = h && h.summary || {};
+  const item = (title, v, sub) => `<div class="card"><h3>${title}</h3><div class="value">${v}</div><div class="sub">${sub || ""}</div></div>`;
+  const pair = k => `${(s[k]||{}).active ?? 0} / ${(s[k]||{}).total ?? 0}`;
+  cards.innerHTML =
+    item("Хосты (активно/всего)", pair("hosts")) +
+    item("ВМ (активно/всего)", pair("vms")) +
+    item("Домены хранения", pair("storage_domains")) +
+    item("Пользователи", pair("users"));
+
+  try {
+    const domains = await req("/api/v1/inventory/storage-domains");
+    document.getElementById("storage-cards").innerHTML = domains.map(d => {
+      const total = d.available_gib + d.used_gib;
+      const pct = total ? Math.round(d.used_gib / total * 100) : 0;
+      return `<div class="card"><h3>${esc(d.name)} ${badge(d.status)}</h3>
+        <div class="value">${d.used_gib} / ${total} GiB</div>
+        <div class="sub">занято ${pct}% · тип ${esc(d.type)}</div>
+        <div class="bar"><i style="width:${pct}%"></i></div></div>`;
+    }).join("") || `<div class="card muted">нет данных</div>`;
+  } catch (e) { document.getElementById("storage-cards").innerHTML = `<div class="card muted">${esc(e.message)}</div>`; }
+  loadEvents();
+}
+
+async function loadEvents() {
+  const box = document.getElementById("events");
+  try {
+    const ev = await req("/api/v1/inventory/events?limit=25");
+    box.innerHTML = ev.map(e => `<div class="event"><span class="sev ${esc(e.severity)}">${esc((e.severity||"").toUpperCase())}</span>${esc(e.description)}<time>${fmtTime(e.time)}</time></div>`).join("") || `<div class="muted">событий нет</div>`;
+  } catch (e) { box.innerHTML = `<div class="muted">${esc(e.message)}</div>`; }
+}
+
+// ---------- виртуальные машины ----------
+let vmsTimer = null;
+async function loadVms() {
+  const wrap = document.getElementById("vms-wrap");
+  try {
+    const vms = await req("/api/v1/vms");
+    if (!vms.length) { wrap.innerHTML = `<div class="card muted">Виртуальных машин нет. Создайте первую — кнопка справа вверху.</div>`; return; }
+    wrap.innerHTML = `<table><thead><tr>
+      <th>Имя</th><th>Статус</th><th>Память</th><th>vCPU</th><th>Описание</th><th style="width:230px">Действия</th>
+      </tr></thead><tbody>${vms.map(vm => `<tr>
+        <td><b>${esc(vm.name)}</b><br><span class="muted" style="font-size:11px">${esc(vm.id)}</span></td>
+        <td>${badge(vm.status)}</td>
+        <td>${vm.memory_mib} MiB</td>
+        <td>${vm.vcpu}</td>
+        <td class="muted">${esc(vm.description || "")}</td>
+        <td>${vmButtons(vm)}</td>
+      </tr>`).join("")}</tbody></table>`;
+    clearTimeout(vmsTimer);
+    if (vms.some(v => TRANSIENT.has(v.status))) vmsTimer = setTimeout(loadVms, 4000);
+  } catch (e) { wrap.innerHTML = `<div class="card muted">${esc(e.message)}</div>`; }
+}
+function vmButtons(vm) {
+  const id = vm.id, st = vm.status;
+  const act = (a, label, cls="") => `<button class="btn sm ${cls}" onclick="vmAction('${id}','${a}','${esc(vm.name)}')">${label}</button> `;
+  let out = "";
+  if (st === "down") out += act("start", "▶ Запуск", "primary");
+  if (st === "up") out += act("shutdown", "Выключение") + act("stop", "Стоп", "danger");
+  if (st === "suspended") out += act("start", "▶ Продолжить", "primary");
+  if (TRANSIENT.has(st)) out += `<span class="spin"></span> `;
+  out += `<button class="btn sm danger" onclick="vmDelete('${id}','${esc(vm.name)}')">Удалить</button>`;
+  return out;
+}
+async function vmAction(id, action, name) {
+  try {
+    await req(`/api/v1/vms/${id}/actions/${action}`, { method: "POST" });
+    toast(`${name}: действие «${action}» принято`);
+    setTimeout(loadVms, 1200);
+  } catch (e) { toast(e.message, "err"); }
+}
+async function vmDelete(id, name) {
+  if (!confirm(`Удалить ВМ «${name}» вместе с дисками?`)) return;
+  try {
+    await req(`/api/v1/vms/${id}`, { method: "DELETE" });
+    toast(`${name}: удалена`);
+    setTimeout(loadVms, 1200);
+  } catch (e) { toast(e.message, "err"); }
+}
+
+// ---------- создание ВМ ----------
+async function openCreateVm() {
+  const modal = document.getElementById("vm-modal");
+  modal.classList.add("open");
+  try {
+    const [templates, networks, storages, isos] = await Promise.all([
+      req("/api/v1/inventory/templates"), req("/api/v1/inventory/networks"),
+      req("/api/v1/inventory/storage-domains"), req("/api/v1/inventory/iso-images"),
+    ]);
+    fillSelect("vm-template", templates.map(t => t.name));
+    fillSelect("vm-network", networks.map(n => n.name));
+    fillSelect("vm-storage", storages.filter(s => s.type === "data").map(s => s.name));
+    fillSelect("vm-iso", ["", ...isos.map(i => i.name)]);
+    toggleDiskHint();
+  } catch (e) { toast(e.message, "err"); }
+}
+function fillSelect(id, values) {
+  document.getElementById(id).innerHTML = values.map(v => `<option value="${esc(v)}">${v ? esc(v) : "— без ISO —"}</option>`).join("");
+}
+function toggleDiskHint() {
+  const blank = document.getElementById("vm-template").value === "Blank";
+  document.getElementById("vm-disk-row").style.display = blank ? "" : "none";
+  document.getElementById("vm-disk-hint").style.display = blank ? "none" : "block";
+}
+document.getElementById("vm-template").addEventListener("change", toggleDiskHint);
+function closeCreateVm() { document.getElementById("vm-modal").classList.remove("open"); }
+async function createVm() {
+  const btn = document.getElementById("vm-create-btn");
+  const template = document.getElementById("vm-template").value;
+  const body = {
+    name: document.getElementById("vm-name").value.trim(),
+    template,
+    memory_mib: Number(document.getElementById("vm-mem").value),
+    vcpu: Number(document.getElementById("vm-vcpu").value),
+    disk_gib: template === "Blank" ? Number(document.getElementById("vm-disk").value) : 0,
+    network: document.getElementById("vm-network").value,
+    storage_domain: document.getElementById("vm-storage").value || null,
+    iso: document.getElementById("vm-iso").value || null,
+    start: document.getElementById("vm-start").checked,
+  };
+  if (!body.name) { toast("Укажите имя ВМ", "err"); return; }
+  btn.disabled = true; btn.textContent = "Создание…";
+  try {
+    const vm = await req("/api/v1/vms", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    toast(`ВМ «${vm.name}» создана`);
+    closeCreateVm();
+    loadVms();
+  } catch (e) { toast(e.message, "err"); }
+  finally { btn.disabled = false; btn.textContent = "Создать"; }
+}
+
+// ---------- стенды ----------
+document.getElementById("stand-yaml").value = STAND_EXAMPLE;
+async function standAction(action) {
+  const busy = document.getElementById("stand-busy");
+  const out = document.getElementById("stand-result");
+  busy.innerHTML = `<span class="spin"></span> выполняется ${action}…`;
+  try {
+    const res = await req(`/api/v1/stands/${action}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ yaml: document.getElementById("stand-yaml").value }),
+    });
+    out.textContent = JSON.stringify(res, null, 2);
+    const failed = res.failed && Object.keys(res.failed).length;
+    toast(failed ? `${action}: есть ошибки (${failed})` : `${action}: выполнено`, failed ? "err" : "ok");
+  } catch (e) {
+    out.textContent = e.message;
+    toast(e.message, "err");
+  } finally { busy.innerHTML = ""; }
+}
+
+// ---------- каталог ----------
+async function loadCatalog() {
+  try {
+    const templates = await req("/api/v1/inventory/templates");
+    document.getElementById("templates").innerHTML = templates.map(t =>
+      `<div class="card"><h3>${esc(t.name)}</h3><div class="value">${t.memory_mib} MiB</div>
+       <div class="sub">${esc(t.description || "без описания")}</div></div>`).join("") || `<div class="card muted">шаблонов нет</div>`;
+    const isos = await req("/api/v1/inventory/iso-images");
+    document.getElementById("isos").innerHTML = isos.map(i =>
+      `<div class="iso"><span>💿 ${esc(i.name)}</span><span class="muted">${i.size_gib} GiB · ${esc(i.status)}</span></div>`).join("") || `<div class="muted">ISO-образов нет</div>`;
+  } catch (e) { toast(e.message, "err"); }
+}
+
+// ---------- старт ----------
+loadOverview();
+setInterval(loadHypervisor, 15000);
+</script>
+</body>
+</html>
