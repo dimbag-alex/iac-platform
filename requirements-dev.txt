@@ -1,0 +1,4 @@
+# Зависимости для тестирования (ЛР4)
+-r requirements.txt
+pytest-cov>=5.0
+playwright>=1.40

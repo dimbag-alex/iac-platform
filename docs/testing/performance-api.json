@@ -1,0 +1,22 @@
+{
+  "/api/health": {
+    "min_ms": 2.4,
+    "avg_ms": 2.9
+  },
+  "/api/health/hypervisor": {
+    "min_ms": 20.3,
+    "avg_ms": 21.6
+  },
+  "/api/v1/vms": {
+    "min_ms": 20,
+    "avg_ms": 21.7
+  },
+  "/api/v1/inventory/storage-domains": {
+    "min_ms": 14,
+    "avg_ms": 14.5
+  },
+  "/api/v1/inventory/events?limit=25": {
+    "min_ms": 8.9,
+    "avg_ms": 10.8
+  }
+}

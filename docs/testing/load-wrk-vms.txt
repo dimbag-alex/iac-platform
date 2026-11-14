@@ -1,0 +1,14 @@
+== /api/v1/vms (живой гипервизор), 10 conn, 15 s ==
+Running 15s test @ http://127.0.0.1:8034/api/v1/vms
+  2 threads and 10 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    25.75ms   26.04ms 357.42ms   98.17%
+    Req/Sec   221.55     31.71   290.00     77.55%
+  Latency Distribution
+     50%   22.29ms
+     75%   25.34ms
+     90%   28.27ms
+     99%  185.54ms
+  6543 requests in 15.08s, 6.10MB read
+Requests/sec:    434.00
+Transfer/sec:    414.51KB
