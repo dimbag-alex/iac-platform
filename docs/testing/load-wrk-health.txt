@@ -1,0 +1,14 @@
+== health, 20 conn, 15 s ==
+Running 15s test @ http://127.0.0.1:8034/api/health
+  2 threads and 20 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     2.68ms  748.06us  17.44ms   94.75%
+    Req/Sec     3.80k   131.29     4.12k    69.33%
+  Latency Distribution
+     50%    2.51ms
+     75%    2.76ms
+     90%    3.06ms
+     99%    7.34ms
+  113331 requests in 15.01s, 19.78MB read
+Requests/sec:   7552.46
+Transfer/sec:      1.32MB

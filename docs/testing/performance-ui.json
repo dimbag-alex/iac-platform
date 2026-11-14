@@ -1,0 +1,16 @@
+{
+  "navigation_timing_ms": {
+    "dns": 0,
+    "tcp": 0,
+    "ttfb": 1,
+    "download": 0,
+    "dom_ready": 5,
+    "full_load": 6
+  },
+  "cdp": {
+    "JSHeapUsedSize_bytes": 1178972,
+    "Documents": 3,
+    "Nodes": 558,
+    "LayoutCount": 0
+  }
+}
