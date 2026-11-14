@@ -1,0 +1,26 @@
+........................................................................ [ 56%]
+.......................................................                  [100%]
+================================ tests coverage ================================
+_______________ coverage: platform darwin, python 3.9.6-final-0 ________________
+
+Name                            Stmts   Miss  Cover   Missing
+-------------------------------------------------------------
+backend/__init__.py                 0      0   100%
+backend/app/api/__init__.py         2      0   100%
+backend/app/api/deps.py            19      3    84%   23, 36, 48
+backend/app/api/health.py          18      5    72%   35-39
+backend/app/api/inventory.py       53     16    70%   21-22, 30-31, 39-40, 48-49, 57-58, 66-67, 75-76, 88-89
+backend/app/api/stands.py          38      7    82%   22, 58-59, 71-72, 84-85
+backend/app/api/vms.py             41      9    78%   24-25, 36, 38-39, 65-66, 75-76
+backend/app/config.py              54      0   100%
+backend/app/main.py                15      0   100%
+backend/app/schemas.py             85      0   100%
+backend/app/zvirt/__init__.py       9      3    67%   54-66
+backend/app/zvirt/auth.py          45      7    84%   73-75, 90-91, 104, 108
+backend/app/zvirt/client.py        64      7    89%   63, 126-127, 152, 160-161, 163
+backend/app/zvirt/errors.py        41      0   100%
+backend/app/zvirt/mappers.py       56      0   100%
+backend/app/zvirt/service.py      191     25    87%   111, 208-213, 228-229, 246-252, 309-310, 359-360, 378-379, 467, 476, 480
+-------------------------------------------------------------
+TOTAL                             731     82    89%
+127 passed in 0.61s

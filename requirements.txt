@@ -10,3 +10,6 @@ PyYAML>=6.0
 
 # Testing
 pytest>=8.0
+
+# Code coverage
+pytest-cov>=5.0
